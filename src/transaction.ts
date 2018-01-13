@@ -1,14 +1,15 @@
-export type Address = string;
-
 export class Transaction {
-  public senderAddress: Address;
-  public recipientAddress: Address;
-  public value: number;
+  public readonly senderAddress: string;
+  public readonly recipientAddress: string;
+  public readonly value: number;
+  public readonly timestamp: number;
+  public readonly signature: string;
 
-  constructor(senderAddress: Address, recipientAddress: Address, value: number) {
+  constructor(senderAddress: string, recipientAddress: string, value: number, timestamp: number, signature: string) {
     this.senderAddress = senderAddress;
     this.recipientAddress = recipientAddress;
     this.value = value;
-    // TODO: implement signature and verification
+    this.timestamp = timestamp;
+    this.signature = signature;
   }
 }

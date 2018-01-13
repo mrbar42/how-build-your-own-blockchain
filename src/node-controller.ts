@@ -4,9 +4,11 @@ import {Blockchain, MiningHandle} from './blockchain';
 import {Block} from './block';
 import {Transaction} from './transaction';
 import {Peer} from './Peer';
+import { Crypto, IKeys } from './crypto';
 
 export class NodeController extends EventEmitter {
   private blockchain: Blockchain;
+  private keys: IKeys;
   private peers: { [peerId: string]: Peer };
   private miningHandle: MiningHandle;
   private runningConsensus: Promise<void>;
@@ -89,10 +91,10 @@ export class NodeController extends EventEmitter {
       });
   };
 
-
-  public init({miningAddress = '', autoMining = true, autoConsensus = true} = {miningAddress: ''}) {
+  public async init({miningAddress = '', autoMining = true, autoConsensus = true} = {miningAddress: ''}) {
     if (!miningAddress) throw new Error('Must provide mining address');
 
+    this.keys = await Crypto.generateKeys();
     this.config = {autoMining, autoConsensus};
     this.blockchain = new Blockchain(miningAddress);
 
@@ -144,17 +146,17 @@ export class NodeController extends EventEmitter {
     return this.blockchain.transactionPool.slice();
   }
 
-  public submitTransaction(transaction: Transaction){
-    this.blockchain.submitTransaction(transaction);
+  public async submitTransaction(transaction: Transaction){
+    await this.blockchain.submitTransaction(transaction);
     this.emit('activity', {msg: `Transaction submitted ${serialize(transaction)}`});
     this.startMining({internal: true});
   }
 
-  public createTransaction(senderAddress: string, recipientAddress: string, value: number) {
+  public async createTransaction(senderAddress: string, recipientAddress: string, value: number, timestamp: number, signature: string) {
     if (!this.blockchain) throw new Error('Block chain is not initialized');
     if (!senderAddress || !recipientAddress || !value) throw new Error("Invalid parameters!");
-    const transaction = new Transaction(senderAddress, recipientAddress, value);
-    this.submitTransaction(transaction);
+    const transaction = new Transaction(senderAddress, recipientAddress, value, timestamp, signature);
+    await this.submitTransaction(transaction);
 
     this.notifyAll('/transactions', serialize(transaction));
   }

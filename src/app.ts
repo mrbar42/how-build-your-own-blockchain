@@ -1,8 +1,9 @@
 import * as uuidv4 from "uuid/v4";
 import express from './shim/express';
-import {routes} from './routes';
-import {SimpleNode} from './simple-node';
-import {NodeController} from './node-controller';
+import { routes } from './routes';
+import { SimpleNode } from './simple-node';
+import { NodeController } from './node-controller';
+import { Crypto } from './crypto';
 
 let controller: NodeController;
 const onNewPeer = () => {
@@ -29,3 +30,25 @@ controller.init({
   autoMining: true,
   autoConsensus: true
 });
+
+(async () => {
+  const sender = await Crypto.generateKeys();
+  const recipient = await Crypto.generateKeys();
+
+  const transaction = {
+    sender: sender.publicKey,
+    recipient: recipient.publicKey,
+    value: 100,
+    timestamp: Date.now()
+  };
+  const signature = await Crypto.sign(JSON.stringify([
+    transaction.sender,
+    transaction.recipient,
+    transaction.value,
+    transaction.timestamp
+  ]), sender.privateKey);
+
+  debugger;
+
+  controller.createTransaction(transaction.sender, transaction.recipient, transaction.value, transaction.timestamp, signature);
+})();

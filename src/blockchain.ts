@@ -1,8 +1,9 @@
-import {Block} from "./block";
-import {Transaction} from "./transaction";
+import { Block } from "./block";
+import { Transaction } from "./transaction";
 import BigNumber from "bignumber.js";
 import deepEqual = require("deep-equal");
-import {clearInterval, setInterval} from "timers";
+import { clearInterval, setInterval } from "timers";
+import { Crypto } from './crypto';
 
 export interface MiningHandle {
   stop(): void
@@ -86,7 +87,7 @@ export class Blockchain {
 
   private handleNewBlock(newBlock: Block, acceptedTransactionsCount: number) {
     this.blocks.push(newBlock);
-    this.transactionPool = this.transactionPool.slice(acceptedTransactionsCount,-1);
+    this.transactionPool = this.transactionPool.slice(acceptedTransactionsCount, -1);
   }
 
   public consensus(blockchains: Array<Array<Block>>): boolean {
@@ -131,7 +132,18 @@ export class Blockchain {
     }
   }
 
-  public verifyTransaction(currTransaction: Transaction) {
+  public async verifyTransactionSignature(transaction: Transaction) {
+    const json = JSON.stringify([
+      transaction.senderAddress,
+      transaction.recipientAddress,
+      transaction.value,
+      transaction.timestamp
+    ]);
+
+    return Crypto.verify(json, transaction.senderAddress, transaction.signature);
+  }
+
+  public verifyTransactionBalance(currTransaction: Transaction) {
     // verifying sender's balance
     let senderBalance = 0;
     this.blocks.forEach(block => {
@@ -157,12 +169,8 @@ export class Blockchain {
       resolve = resolver;
     });
 
-    // removing non verified transactions from transactionPool
-    const relevantTransactions = this.transactionPool.filter(this.verifyTransaction, this);
-    this.transactionPool = relevantTransactions;
-
     const transactions = [
-      new Transaction(Blockchain.MINING_SENDER, this.nodeId, Blockchain.MINING_REWARD),
+      // new Transaction(Blockchain.MINING_SENDER, this.nodeId, Blockchain.MINING_REWARD, Date.now()),
       ...this.transactionPool.slice(0, Blockchain.MAX_BLOCK_SIZE - 1)
     ];
 
@@ -202,15 +210,23 @@ export class Blockchain {
     return {
       stop,
       newBlockPromise: miningPromise,
-      transactionsCount: relevantTransactions.length,
+      transactionsCount: transactions.length,
       lastBlock: lastBlock.blockNumber
     };
   }
 
-  // Submits new transaction
-  public submitTransaction(transaction: Transaction) {
+  public async submitTransaction(transaction: Transaction) {
+    if (!this.verifyTransactionBalance(transaction)) {
+      return false;
+    }
+
+    if (!await this.verifyTransactionSignature(transaction)) {
+      return false;
+    }
+
     // TODO: if the sender address already exists in the pool reject the transaction
     this.transactionPool.push(transaction);
+    return true;
   }
 
   public getLastBlock(): Block {
